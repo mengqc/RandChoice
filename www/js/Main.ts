@@ -5,8 +5,6 @@
  * Created by mengqingchao on 15/4/19.
  */
 
-var STORAGE_NAME = "nameList";
-
 interface IPage {
     onShow(event:any);
     onHide(event:any);
@@ -38,13 +36,15 @@ class MainPage extends Page{
 
     onStartClicked(){
         console.log("Start Clicked");
-        var storage:any = window.localStorage;
-        var itemListStr: string = storage.getItem(STORAGE_NAME);
-        var itemList: Array<string> = itemListStr ? JSON.parse(itemListStr) : [];
+        var itemList: Array<string> = appStorage.getItems();
         var choseIndex : number = ~~(Math.random() * itemList.length);
         if(itemList.length > 0){
-            console.log(itemList[choseIndex]);
+            $("#main #result").html(itemList[choseIndex]);
         }
+    }
+
+    onHide(event:any){
+        $("#main #result").empty();
     }
 
 }
@@ -54,30 +54,45 @@ class ItemListPage extends Page{
     constructor(){
         super($("#itemList"));
         console.log("init itemList page");
+        this.pageDom[0].addEventListener("delete", this.onDeleteItem);
+        this.pageDom[0].addEventListener("refresh", this.onDeleteItem);
     }
 
     onShow(event:any){
         console.log("onShow");
-        var storage:any = window.localStorage;
-        var itemListStr: string = storage.getItem(STORAGE_NAME);
-        var itemList: Array<string> = itemListStr ? JSON.parse(itemListStr) : [];
+        var itemList: Array<string> = appStorage.getItems();
         console.log(itemList);
-        //$("#itemList #lsItem").empty();
+        $("#itemList #lsItem").empty();
         for(var i:number = 0; i < itemList.length; i++){
             var template: string = '<li>'+
             '<a href="#">' +
             '<p>' + itemList[i] + '</p>' +
             '</a>' +
-            '<a href="#" data-role="hide-item' + (i + 1) + '" class="ui-btn ui-btn-right ui-icon-delete"></a>' +
+            '<a href="#" onclick="dispatch(this, \'delete\', \'' + itemList[i] + '\');" class="ui-btn ui-btn-right ui-icon-delete"></a>' +
             '</li>';
             $("#itemList #lsItem").append(template);
         }
         $("#itemList #lsItem").listview("refresh");
-        $(".ui-icon-delete").click(this.onDeleteItem);
     }
 
     onDeleteItem(event:any){
         console.log(event);
+        var delValue: string = event["data"];
+        appStorage.removeItem(delValue);
+
+        var itemList: Array<string> = appStorage.getItems();
+        console.log(itemList);
+        $("#itemList #lsItem").empty();
+        for(var i:number = 0; i < itemList.length; i++){
+            var template: string = '<li>'+
+                '<a href="#">' +
+                '<p>' + itemList[i] + '</p>' +
+                '</a>' +
+                '<a href="#" onclick="dispatch(this, \'delete\', \'' + itemList[i] + '\');" class="ui-btn ui-btn-right ui-icon-delete"></a>' +
+                '</li>';
+            $("#itemList #lsItem").append(template);
+        }
+        $("#itemList #lsItem").listview("refresh");
     }
 
 }
@@ -94,12 +109,9 @@ class OneItemPage extends Page{
         var value: string = $("#tfItemName").val();
         console.log(value);
         if(value) {
-            var storage:any = window.localStorage;
-            var itemListStr: string = storage.getItem(STORAGE_NAME);
-            var itemList: Array<string> = itemListStr ? JSON.parse(itemListStr) : [];
-            itemList.push(value);
-            storage.setItem(STORAGE_NAME, JSON.stringify(itemList));
+            appStorage.addItem(value);
         }
+        $("#tfItemName").val("");
         $("#oneItem").dialog("close");
     }
 }
@@ -142,5 +154,48 @@ class Main extends App {
         console.log("onOnLine");
     }
 }
+
+class AppStorage{
+
+    storage: any;
+    data: Array<string>;
+
+    constructor(public dataKey: string){
+        this.storage = window.localStorage;
+        var dataStr: string = this.storage.getItem(this.dataKey);
+        this.data = dataStr ? JSON.parse(dataStr) : [];
+    }
+
+    save(){
+        this.storage.setItem(this.dataKey, JSON.stringify(this.data));
+    }
+
+    addItem(item: string) {
+        this.data.push(item);
+        this.save();
+    }
+
+    removeItem(item: string){
+        var i: number = this.data.indexOf(item);
+        if(i > -1){
+            this.data.splice(i, 1);
+        }
+        this.save();
+    }
+
+    getItems(){
+        return this.data;
+    }
+
+}
+
+function dispatch(obj: any, name: string, data?: any){
+    var e : Event = document.createEvent("Event");
+    e.initEvent(name, true, true);
+    e["data"] = data;
+    obj.dispatchEvent(e);
+}
+
+var appStorage: AppStorage = new AppStorage("nameList");
 
 Main.s().start();

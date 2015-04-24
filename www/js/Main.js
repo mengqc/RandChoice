@@ -10,7 +10,6 @@ var __extends = this.__extends || function (d, b) {
     __.prototype = b.prototype;
     d.prototype = new __();
 };
-var STORAGE_NAME = "nameList";
 var Page = (function () {
     function Page(pageDom) {
         this.pageDom = pageDom;
@@ -32,13 +31,14 @@ var MainPage = (function (_super) {
     }
     MainPage.prototype.onStartClicked = function () {
         console.log("Start Clicked");
-        var storage = window.localStorage;
-        var itemListStr = storage.getItem(STORAGE_NAME);
-        var itemList = itemListStr ? JSON.parse(itemListStr) : [];
+        var itemList = appStorage.getItems();
         var choseIndex = ~~(Math.random() * itemList.length);
         if (itemList.length > 0) {
-            console.log(itemList[choseIndex]);
+            $("#main #result").html(itemList[choseIndex]);
         }
+    };
+    MainPage.prototype.onHide = function (event) {
+        $("#main #result").empty();
     };
     return MainPage;
 })(Page);
@@ -47,22 +47,32 @@ var ItemListPage = (function (_super) {
     function ItemListPage() {
         _super.call(this, $("#itemList"));
         console.log("init itemList page");
+        this.pageDom[0].addEventListener("delete", this.onDeleteItem);
+        this.pageDom[0].addEventListener("refresh", this.onDeleteItem);
     }
     ItemListPage.prototype.onShow = function (event) {
         console.log("onShow");
-        var storage = window.localStorage;
-        var itemListStr = storage.getItem(STORAGE_NAME);
-        var itemList = itemListStr ? JSON.parse(itemListStr) : [];
+        var itemList = appStorage.getItems();
         console.log(itemList);
+        $("#itemList #lsItem").empty();
         for (var i = 0; i < itemList.length; i++) {
-            var template = '<li>' + '<a href="#">' + '<p>' + itemList[i] + '</p>' + '</a>' + '<a href="#" data-role="hide-item' + (i + 1) + '" class="ui-btn ui-btn-right ui-icon-delete"></a>' + '</li>';
+            var template = '<li>' + '<a href="#">' + '<p>' + itemList[i] + '</p>' + '</a>' + '<a href="#" onclick="dispatch(this, \'delete\', \'' + itemList[i] + '\');" class="ui-btn ui-btn-right ui-icon-delete"></a>' + '</li>';
             $("#itemList #lsItem").append(template);
         }
         $("#itemList #lsItem").listview("refresh");
-        $(".ui-icon-delete").click(this.onDeleteItem);
     };
     ItemListPage.prototype.onDeleteItem = function (event) {
         console.log(event);
+        var delValue = event["data"];
+        appStorage.removeItem(delValue);
+        var itemList = appStorage.getItems();
+        console.log(itemList);
+        $("#itemList #lsItem").empty();
+        for (var i = 0; i < itemList.length; i++) {
+            var template = '<li>' + '<a href="#">' + '<p>' + itemList[i] + '</p>' + '</a>' + '<a href="#" onclick="dispatch(this, \'delete\', \'' + itemList[i] + '\');" class="ui-btn ui-btn-right ui-icon-delete"></a>' + '</li>';
+            $("#itemList #lsItem").append(template);
+        }
+        $("#itemList #lsItem").listview("refresh");
     };
     return ItemListPage;
 })(Page);
@@ -77,12 +87,9 @@ var OneItemPage = (function (_super) {
         var value = $("#tfItemName").val();
         console.log(value);
         if (value) {
-            var storage = window.localStorage;
-            var itemListStr = storage.getItem(STORAGE_NAME);
-            var itemList = itemListStr ? JSON.parse(itemListStr) : [];
-            itemList.push(value);
-            storage.setItem(STORAGE_NAME, JSON.stringify(itemList));
+            appStorage.addItem(value);
         }
+        $("#tfItemName").val("");
         $("#oneItem").dialog("close");
     };
     return OneItemPage;
@@ -118,5 +125,38 @@ var Main = (function (_super) {
     };
     return Main;
 })(App);
+var AppStorage = (function () {
+    function AppStorage(dataKey) {
+        this.dataKey = dataKey;
+        this.storage = window.localStorage;
+        var dataStr = this.storage.getItem(this.dataKey);
+        this.data = dataStr ? JSON.parse(dataStr) : [];
+    }
+    AppStorage.prototype.save = function () {
+        this.storage.setItem(this.dataKey, JSON.stringify(this.data));
+    };
+    AppStorage.prototype.addItem = function (item) {
+        this.data.push(item);
+        this.save();
+    };
+    AppStorage.prototype.removeItem = function (item) {
+        var i = this.data.indexOf(item);
+        if (i > -1) {
+            this.data.splice(i, 1);
+        }
+        this.save();
+    };
+    AppStorage.prototype.getItems = function () {
+        return this.data;
+    };
+    return AppStorage;
+})();
+function dispatch(obj, name, data) {
+    var e = document.createEvent("Event");
+    e.initEvent(name, true, true);
+    e["data"] = data;
+    obj.dispatchEvent(e);
+}
+var appStorage = new AppStorage("nameList");
 Main.s().start();
 //# sourceMappingURL=Main.js.map
